@@ -38,17 +38,25 @@ jobs:
         run: |
           $user = "admin"
           $pass = "admin"
-          $secure = ConvertTo-SecureString $pass -AsPlainText -Force
 
-          # إنشاء المستخدم لو مش موجود
+          # ── تعطيل شرط التعقيد أولاً ──
+          secedit /export /cfg "$env:TEMP\sec.cfg" | Out-Null
+          (Get-Content "$env:TEMP\sec.cfg") `
+            -replace 'PasswordComplexity\s*=\s*1', 'PasswordComplexity = 0' `
+            -replace 'MinimumPasswordLength\s*=\s*\d+', 'MinimumPasswordLength = 0' |
+            Set-Content "$env:TEMP\sec.cfg"
+          secedit /configure /db "$env:TEMP\sec.db" /cfg "$env:TEMP\sec.cfg" /quiet
+
+          # ── إنشاء المستخدم ──
+          $secure = ConvertTo-SecureString $pass -AsPlainText -Force
           if (-not (Get-LocalUser -Name $user -ErrorAction SilentlyContinue)) {
             New-LocalUser -Name $user -Password $secure -AccountNeverExpires -PasswordNeverExpires
           } else {
             Set-LocalUser -Name $user -Password $secure
           }
 
-          Add-LocalGroupMember -Group "Administrators"        -Member $user -ErrorAction SilentlyContinue
-          Add-LocalGroupMember -Group "Remote Desktop Users"  -Member $user -ErrorAction SilentlyContinue
+          Add-LocalGroupMember -Group "Administrators"       -Member $user -ErrorAction SilentlyContinue
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $user -ErrorAction SilentlyContinue
 
           Write-Host "User: $user | Pass: $pass"
 
